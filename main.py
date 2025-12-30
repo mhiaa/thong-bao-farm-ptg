@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - PLAY TOGETHER NO ERROR"
+def home(): return "BOT FARM - CLEAN NOTIFICATION VERSION"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 # 2. Danh sách hình ảnh TRÁI CÂY
@@ -21,7 +21,7 @@ IMAGES_FRUIT = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
-# 3. Danh sách hình ảnh THỜI TIẾT (Direct Link)
+# 3. Danh sách hình ảnh THỜI TIẾT
 IMAGES_WEATHER = {
     "Ánh trăng": "https://docs.google.com/uc?export=download&id=1RnCoa7Q9lozV5Hykre3yZttHRgCjvRvt",
     "Bão": "https://docs.google.com/uc?export=download&id=1LtMmLCtQBkSmLTDrtqpE0IGaZnUJLqIG",
@@ -88,11 +88,12 @@ def start_copy():
                         img_url = IMAGES_WEATHER.get(ten_thoi_tiet, IMAGES_FRUIT.get(qua_gi, ""))
                         display_name = ten_thoi_tiet if ten_thoi_tiet else (qua_gi if qua_gi else "Farm")
                         
-                        # Sử dụng định dạng ` ` (inline code) để font chữ nhìn mập và chuyên nghiệp hơn
-                        title = f"**` {display_name.upper()} `** — `{time_str}`"
+                        # --- FIX TẠI ĐÂY: Loại bỏ hoàn toàn dấu ** và ` trong tiêu đề ---
+                        title = f"{display_name.upper()} — {time_str}"
 
+                        # Giữ lại in đậm trong nội dung Embed để nhìn cho đẹp
                         display_text = clean_text
-                        for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể"]:
+                        for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
 
                         payload = {
