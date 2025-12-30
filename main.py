@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - BEAUTIFUL & CLEAN VERSION"
+def home(): return "BOT FARM - NO DUPLICATE VERSION"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# 2. Danh sách hình ảnh (Giữ nguyên các link bạn đã cung cấp)
+# 2. Danh sách hình ảnh TRÁI CÂY
 IMAGES_FRUIT = {
     "Bí ngô": "https://docs.google.com/uc?export=download&id=1_8bJk5VFrzpRwLqwFx2wWiv7ue_RFyGI",
     "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
@@ -21,6 +21,7 @@ IMAGES_FRUIT = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
+# 3. Danh sách hình ảnh THỜI TIẾT
 IMAGES_WEATHER = {
     "Ánh trăng": "https://docs.google.com/uc?export=download&id=1RnCoa7Q9lozV5Hykre3yZttHRgCjvRvt",
     "Bão": "https://docs.google.com/uc?export=download&id=1LtMmLCtQBkSmLTDrtqpE0IGaZnUJLqIG",
@@ -40,16 +41,28 @@ WEATHER_MAP = {
     "Gió": "Gió", "Khô": "Nắng nóng", "Sương mù": "Sương mù"
 }
 
+# HÀM SIÊU LỌC: Chống lặp từ tuyệt đối (Dưa hấu Dưa hấu -> Dưa hấu)
 def clean_extreme(text):
     if not text: return ""
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'[`*_~>|]', '', text)
+    
+    # Tách từ và chuẩn hóa khoảng trắng
     words = text.split()
     clean_words = []
+    
+    # Duyệt từng từ, nếu từ sau (dù viết hoa hay thường) giống từ trước thì bỏ qua
     for i, word in enumerate(words):
         if i == 0 or word.lower() != words[i-1].lower():
+            # Xử lý trường hợp đặc biệt như "Dưa hấu Dưa hấu"
+            if len(clean_words) >= 2:
+                phrase_2 = (clean_words[-2] + " " + clean_words[-1]).lower()
+                current_phrase = (clean_words[-1] + " " + word).lower()
+                if phrase_2 == current_phrase:
+                    continue
             clean_words.append(word)
+            
     return " ".join(clean_words).strip()
 
 def start_copy():
@@ -85,23 +98,17 @@ def start_copy():
                                 break
 
                         img_url = IMAGES_WEATHER.get(ten_thoi_tiet, IMAGES_FRUIT.get(qua_gi, ""))
-                        display_name = ten_thoi_tiet if ten_thoi_tiet else (qua_gi if qua_gi else "Farm")
+                        display_name = ten_thoi_tiet if ten_thoi_tiet else (qua_gi if qua_gi else "FARM")
                         
-                        # TIÊU ĐỀ SẠCH (Cho thông báo điện thoại)
                         clean_title = f"{display_name.upper()} — {time_str}"
-                        
-                        # TIÊU ĐỀ TRANG TRÍ (Dùng trong khung nội dung cho đẹp)
-                        fancy_title = f"**` {display_name.upper()} `** — `{time_str}`"
 
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
 
-                        # Kết hợp cả hai để vừa đẹp bên trong vừa sạch bên ngoài
                         payload = {
                             "content": clean_title,
                             "embeds": [{
-                                "title": fancy_title,
                                 "description": display_text,
                                 "color": 3066993,
                                 "thumbnail": {"url": img_url}
