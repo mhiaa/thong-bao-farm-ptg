@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - CLEAN NOTIFICATION VERSION"
+def home(): return "BOT FARM - BEAUTIFUL & CLEAN VERSION"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# 2. Danh sách hình ảnh TRÁI CÂY
+# 2. Danh sách hình ảnh (Giữ nguyên các link bạn đã cung cấp)
 IMAGES_FRUIT = {
     "Bí ngô": "https://docs.google.com/uc?export=download&id=1_8bJk5VFrzpRwLqwFx2wWiv7ue_RFyGI",
     "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
@@ -21,7 +21,6 @@ IMAGES_FRUIT = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
-# 3. Danh sách hình ảnh THỜI TIẾT
 IMAGES_WEATHER = {
     "Ánh trăng": "https://docs.google.com/uc?export=download&id=1RnCoa7Q9lozV5Hykre3yZttHRgCjvRvt",
     "Bão": "https://docs.google.com/uc?export=download&id=1LtMmLCtQBkSmLTDrtqpE0IGaZnUJLqIG",
@@ -88,17 +87,21 @@ def start_copy():
                         img_url = IMAGES_WEATHER.get(ten_thoi_tiet, IMAGES_FRUIT.get(qua_gi, ""))
                         display_name = ten_thoi_tiet if ten_thoi_tiet else (qua_gi if qua_gi else "Farm")
                         
-                        # --- FIX TẠI ĐÂY: Loại bỏ hoàn toàn dấu ** và ` trong tiêu đề ---
-                        title = f"{display_name.upper()} — {time_str}"
+                        # TIÊU ĐỀ SẠCH (Cho thông báo điện thoại)
+                        clean_title = f"{display_name.upper()} — {time_str}"
+                        
+                        # TIÊU ĐỀ TRANG TRÍ (Dùng trong khung nội dung cho đẹp)
+                        fancy_title = f"**` {display_name.upper()} `** — `{time_str}`"
 
-                        # Giữ lại in đậm trong nội dung Embed để nhìn cho đẹp
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
 
+                        # Kết hợp cả hai để vừa đẹp bên trong vừa sạch bên ngoài
                         payload = {
-                            "content": title,
+                            "content": clean_title,
                             "embeds": [{
+                                "title": fancy_title,
                                 "description": display_text,
                                 "color": 3066993,
                                 "thumbnail": {"url": img_url}
