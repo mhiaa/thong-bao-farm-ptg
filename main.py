@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - COLOR CUSTOM VERSION"
+def home(): return "BOT FARM - NO LIMITS VERSION"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 # 2. Danh sách hình ảnh TRÁI CÂY
@@ -63,7 +63,6 @@ def start_copy():
     webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}
     msg_cache = [] 
-    last_sent_content = ""
 
     while True:
         try:
@@ -71,11 +70,12 @@ def start_copy():
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
+                    # Chỉ chặn nếu chính cái ID tin nhắn đó đã được gửi (tránh gửi 1 tin nhiều lần)
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
                         
-                        if not clean_text or clean_text == last_sent_content:
+                        if not clean_text:
                             msg_cache.append(msg_id)
                             continue
                         
@@ -89,18 +89,16 @@ def start_copy():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
-                        # Xử lý màu sắc và hình ảnh
                         if ten_thoi_tiet:
-                            color_code = 9442302  # Màu tím cho thời tiết
+                            color_code = 9442302
                             img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
                             display_name = ten_thoi_tiet
                         else:
-                            color_code = 3066993  # Màu xanh cho trái cây
+                            color_code = 3066993
                             img_url = IMAGES_FRUIT.get(qua_gi, "")
                             display_name = qua_gi if qua_gi else "FARM"
 
                         clean_title = f"{display_name.upper()} — {time_str}"
-
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
@@ -115,7 +113,6 @@ def start_copy():
                         }
                         requests.post(webhook_url, json=payload, timeout=10)
                         
-                        last_sent_content = clean_text
                         time.sleep(2.5)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 20: msg_cache.pop(0)
