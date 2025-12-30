@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - NO DUPLICATE VERSION"
+def home(): return "BOT FARM - COLOR CUSTOM VERSION"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 # 2. Danh sách hình ảnh TRÁI CÂY
@@ -41,28 +41,20 @@ WEATHER_MAP = {
     "Gió": "Gió", "Khô": "Nắng nóng", "Sương mù": "Sương mù"
 }
 
-# HÀM SIÊU LỌC: Chống lặp từ tuyệt đối (Dưa hấu Dưa hấu -> Dưa hấu)
 def clean_extreme(text):
     if not text: return ""
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'[`*_~>|]', '', text)
-    
-    # Tách từ và chuẩn hóa khoảng trắng
     words = text.split()
     clean_words = []
-    
-    # Duyệt từng từ, nếu từ sau (dù viết hoa hay thường) giống từ trước thì bỏ qua
     for i, word in enumerate(words):
         if i == 0 or word.lower() != words[i-1].lower():
-            # Xử lý trường hợp đặc biệt như "Dưa hấu Dưa hấu"
             if len(clean_words) >= 2:
                 phrase_2 = (clean_words[-2] + " " + clean_words[-1]).lower()
                 current_phrase = (clean_words[-1] + " " + word).lower()
-                if phrase_2 == current_phrase:
-                    continue
+                if phrase_2 == current_phrase: continue
             clean_words.append(word)
-            
     return " ".join(clean_words).strip()
 
 def start_copy():
@@ -97,9 +89,16 @@ def start_copy():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
-                        img_url = IMAGES_WEATHER.get(ten_thoi_tiet, IMAGES_FRUIT.get(qua_gi, ""))
-                        display_name = ten_thoi_tiet if ten_thoi_tiet else (qua_gi if qua_gi else "FARM")
-                        
+                        # Xử lý màu sắc và hình ảnh
+                        if ten_thoi_tiet:
+                            color_code = 9442302  # Màu tím cho thời tiết
+                            img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
+                            display_name = ten_thoi_tiet
+                        else:
+                            color_code = 3066993  # Màu xanh cho trái cây
+                            img_url = IMAGES_FRUIT.get(qua_gi, "")
+                            display_name = qua_gi if qua_gi else "FARM"
+
                         clean_title = f"{display_name.upper()} — {time_str}"
 
                         display_text = clean_text
@@ -110,7 +109,7 @@ def start_copy():
                             "content": clean_title,
                             "embeds": [{
                                 "description": display_text,
-                                "color": 3066993,
+                                "color": color_code,
                                 "thumbnail": {"url": img_url}
                             }]
                         }
