@@ -3,11 +3,11 @@ from flask import Flask
 from threading import Thread
 from datetime import datetime, timezone, timedelta
 
-# 1. Cấu hình Server để chạy trên Koyeb (Port 8000)
+# 1. Cấu hình Server (Koyeb Port 8000)
 app = Flask('')
 @app.route('/')
 def home(): 
-    return "BOT FARM - FINAL VERSION IS RUNNING"
+    return "BOT FARM - FULL WEATHER VERSION"
 
 def run():
     app.run(host='0.0.0.0', port=8000)
@@ -16,7 +16,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# 2. Danh sách hình ảnh trái cây (Direct Link Drive)
+# 2. Danh sách hình ảnh trái cây
 IMAGES = {
     "Bí ngô": "https://docs.google.com/uc?export=download&id=1_8bJk5VFrzpRwLqwFx2wWiv7ue_RFyGI",
     "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
@@ -28,35 +28,37 @@ IMAGES = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
-# 3. Hàm xử lý: Xóa link gây nền xám và chống lặp từ
+# Danh sách các loại thời tiết cần canh chừng
+WEATHER_LIST = ["Bão", "Mưa", "Tuyết", "Nắng", "Gió", "Sương mù", "Cát", "Lốc xoáy", "Hàn hán"]
+
 def clean_extreme(text):
     if not text: return ""
-    # Xóa toàn bộ URL ẩn để Discord không hiện khung nền xám
-    text = re.sub(r'http\S+', '', text)
-    # Xóa các ký tự đặc biệt của Discord
-    text = re.sub(r'[`*_~>|]', '', text)
-    # Chống lặp từ (Ví dụ: "Nho Nho" -> "Nho")
+    text = re.sub(r'http\S+', '', text) # Xóa link
+    text = re.sub(r'[`*_~>|]', '', text) # Xóa ký tự rác Discord
+    
     words = text.split()
     clean_words = []
     for i, word in enumerate(words):
-        if i == 0 or word.lower() != words[i-1].lower():
-            clean_words.append(word)
+        # Chống lặp từ nhưng KHÔNG xóa nếu đó là từ thời tiết quan trọng
+        if i > 0 and word.lower() == words[i-1].lower():
+            if not any(w.lower() in word.lower() for w in WEATHER_LIST):
+                continue
+        clean_words.append(word)
     return " ".join(clean_words).strip()
 
 def start_copy():
-    # Lấy thông tin từ Environment Variables trên Koyeb
     token = os.environ.get('TOKEN')
     channel_id = os.environ.get('CHANNEL_ID')
     webhook_url = os.environ.get('WEBHOOK')
     
     headers = {'Authorization': token}
-    msg_cache = [] # Lưu ID tin nhắn để tránh trùng lặp
+    msg_cache = [] 
+    last_sent_content = ""
 
-    print("Bot đang bắt đầu quét tin nhắn...")
+    print("Bot đang quét mọi loại thời tiết và trái cây...")
 
     while True:
         try:
-            # Lấy 5 tin nhắn mới nhất
             res = requests.get(
                 f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", 
                 headers=headers, 
@@ -68,52 +70,58 @@ def start_copy():
                     msg_id = msg.get('id')
                     
                     if msg_id not in msg_cache:
-                        # Gom nội dung từ cả tin nhắn text và Embed của server gốc
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
                         
-                        if not clean_text: continue
+                        if not clean_text or clean_text == last_sent_content:
+                            msg_cache.append(msg_id)
+                            continue
                         
-                        # Xử lý giờ Việt Nam
                         ts = msg.get('timestamp')
                         vn_time = datetime.fromisoformat(ts.replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
 
-                        # Xác định loại trái cây để lấy ảnh và tạo Tiêu đề thông báo nổi
+                        # 1. Kiểm tra Trái cây
                         qua_gi = next((f for f in IMAGES if f.lower() in clean_text.lower()), "")
                         img_url = IMAGES.get(qua_gi, "")
                         
-                        # Tiêu đề hiển thị trên thanh thông báo điện thoại
-                        if qua_gi:
+                        # 2. Kiểm tra mọi loại Thời tiết có trong WEATHER_LIST
+                        loai_thoi_tiet = ""
+                        for w in WEATHER_LIST:
+                            if w.lower() in clean_text.lower():
+                                loai_thoi_tiet = w
+                                break
+
+                        # TẠO TIÊU ĐỀ THÔNG BÁO NỔI
+                        if loai_thoi_tiet:
+                            # Nếu có bão hoặc thời tiết, hiện icon cảnh báo và tên thời tiết đó
+                            title = f"⚠️ {loai_thoi_tiet} xuất hiện!! - {time_str}"
+                        elif qua_gi:
                             title = f"{qua_gi} - {time_str}"
-                        elif any(x in clean_text for x in ["Tuyết", "Mưa", "Nắng"]):
-                            title = f"Thời tiết - {time_str}"
                         else:
                             title = time_str
 
-                        # Gửi qua Webhook với giao diện Embed màu xanh lá, thumbnail bên phải
                         payload = {
-                            "content": title, # Nội dung này sẽ hiện trên thông báo nổi
+                            "content": title,
                             "embeds": [{
                                 "description": clean_text,
-                                "color": 3066993, # Màu xanh lá
+                                "color": 3066993,
                                 "thumbnail": {"url": img_url}
                             }]
                         }
                         
                         requests.post(webhook_url, json=payload, timeout=10)
                         
-                        # Quan trọng: Nghỉ 2.5s để điện thoại hiện nhiều thông báo tách biệt
-                        time.sleep(2.5)
-                        
+                        last_sent_content = clean_text 
+                        time.sleep(2.5) 
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 20: msg_cache.pop(0)
         except Exception as e:
-            print(f"Lỗi: {e}")
             time.sleep(5)
         
-        time.sleep(2) # Đợi trước khi quét đợt tiếp theo
+        time.sleep(2)
 
 if __name__ == "__main__":
-    keep_alive() # Chạy web server để Koyeb không tắt bot
-    start_copy() # Chạy trình copy tin nhắn
+    keep_alive()
+    start_copy()
+    
