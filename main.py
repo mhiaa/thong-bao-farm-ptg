@@ -3,18 +3,11 @@ from flask import Flask
 from threading import Thread
 from datetime import datetime, timezone, timedelta
 
-# 1. Cấu hình Server (Koyeb Port 8000)
+# 1. Cấu hình Server duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): 
-    return "BOT FARM - FULL WEATHER VERSION"
-
-def run():
-    app.run(host='0.0.0.0', port=8000)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
+def home(): return "BOT FARM - FINAL CLEAN VERSION"
+def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 # 2. Danh sách hình ảnh trái cây
 IMAGES = {
@@ -28,20 +21,35 @@ IMAGES = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
-# Danh sách các loại thời tiết cần canh chừng
-WEATHER_LIST = ["Bão", "Mưa", "Tuyết", "Nắng", "Gió", "Sương mù", "Cát", "Lốc xoáy", "Hàn hán"]
+# 3. Bản đồ Thời tiết - Biến thể chuẩn (Đã xóa ⚠️)
+WEATHER_MAP = {
+    "Ẩm ướt": "Mưa/Sương mù",
+    "Cát": "Gió cát",
+    "Khí lạnh": "Tuyết",
+    "nhiễm điện": "Bão",
+    "sương": "Sương sớm",
+    "Ánh trăng": "Ánh trăng",
+    "cực quang": "Cực quang",
+    "Gió": "Gió",
+    "Khô": "Nắng nóng",
+    "Nắng Nóng": "Nắng nóng"
+}
 
 def clean_extreme(text):
     if not text: return ""
-    text = re.sub(r'http\S+', '', text) # Xóa link
-    text = re.sub(r'[`*_~>|]', '', text) # Xóa ký tự rác Discord
+    # Xóa link để tránh nền xám
+    text = re.sub(r'http\S+', '', text)
+    # FIX LỖI TRIỆT ĐỂ: Xóa sạch các mã @role, emote, mã ID lằng nhằng dạng <@...> hoặc <:..:>
+    text = re.sub(r'<[^>]+>', '', text)
+    # Xóa ký tự rác Discord
+    text = re.sub(r'[`*_~>|]', '', text)
     
     words = text.split()
     clean_words = []
     for i, word in enumerate(words):
-        # Chống lặp từ nhưng KHÔNG xóa nếu đó là từ thời tiết quan trọng
+        # Chống lặp từ nhưng giữ lại từ thời tiết
         if i > 0 and word.lower() == words[i-1].lower():
-            if not any(w.lower() in word.lower() for w in WEATHER_LIST):
+            if not any(w.lower() in word.lower() for w in WEATHER_MAP):
                 continue
         clean_words.append(word)
     return " ".join(clean_words).strip()
@@ -50,78 +58,68 @@ def start_copy():
     token = os.environ.get('TOKEN')
     channel_id = os.environ.get('CHANNEL_ID')
     webhook_url = os.environ.get('WEBHOOK')
-    
     headers = {'Authorization': token}
     msg_cache = [] 
     last_sent_content = ""
 
-    print("Bot đang quét mọi loại thời tiết và trái cây...")
-
     while True:
         try:
-            res = requests.get(
-                f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", 
-                headers=headers, 
-                timeout=10
-            ).json()
-
+            res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=10).json()
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
-                    
                     if msg_id not in msg_cache:
+                        # Gom nội dung
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
                         
+                        # Chống trùng lặp tin nhắn
                         if not clean_text or clean_text == last_sent_content:
                             msg_cache.append(msg_id)
                             continue
                         
+                        # Giờ Việt Nam
                         ts = msg.get('timestamp')
                         vn_time = datetime.fromisoformat(ts.replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
 
-                        # 1. Kiểm tra Trái cây
+                        # Nhận diện trái cây
                         qua_gi = next((f for f in IMAGES if f.lower() in clean_text.lower()), "")
-                        img_url = IMAGES.get(qua_gi, "")
                         
-                        # 2. Kiểm tra mọi loại Thời tiết có trong WEATHER_LIST
-                        loai_thoi_tiet = ""
-                        for w in WEATHER_LIST:
-                            if w.lower() in clean_text.lower():
-                                loai_thoi_tiet = w
+                        # Nhận diện thời tiết/biến thể
+                        ten_thoi_tiet = ""
+                        for bien_the, thoi_tiet_chinh in WEATHER_MAP.items():
+                            if bien_the.lower() in clean_text.lower():
+                                ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
-                        # TẠO TIÊU ĐỀ THÔNG BÁO NỔI
-                        if loai_thoi_tiet:
-                            # Nếu có bão hoặc thời tiết, hiện icon cảnh báo và tên thời tiết đó
-                            title = f"⚠️ {loai_thoi_tiet} xuất hiện!! - {time_str}"
+                        # TẠO TIÊU ĐỀ (Sạch sẽ, không icon)
+                        if ten_thoi_tiet:
+                            title = f"{ten_thoi_tiet} - {time_str}"
                         elif qua_gi:
                             title = f"{qua_gi} - {time_str}"
                         else:
                             title = time_str
 
+                        # Gửi Webhook
                         payload = {
                             "content": title,
                             "embeds": [{
                                 "description": clean_text,
                                 "color": 3066993,
-                                "thumbnail": {"url": img_url}
+                                "thumbnail": {"url": IMAGES.get(qua_gi, "")}
                             }]
                         }
-                        
                         requests.post(webhook_url, json=payload, timeout=10)
                         
-                        last_sent_content = clean_text 
-                        time.sleep(2.5) 
+                        last_sent_content = clean_text
+                        time.sleep(2.5)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 20: msg_cache.pop(0)
-        except Exception as e:
-            time.sleep(5)
-        
+        except: time.sleep(5)
         time.sleep(2)
 
 if __name__ == "__main__":
-    keep_alive()
+    keep()
     start_copy()
     
