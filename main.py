@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - NO LIMITS VERSION"
+def home(): return "BOT FARM - FIX DUPLICATE ID"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# 2. Danh sách hình ảnh TRÁI CÂY
+# 2. Danh sách hình ảnh
 IMAGES_FRUIT = {
     "Bí ngô": "https://docs.google.com/uc?export=download&id=1_8bJk5VFrzpRwLqwFx2wWiv7ue_RFyGI",
     "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
@@ -21,7 +21,6 @@ IMAGES_FRUIT = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
-# 3. Danh sách hình ảnh THỜI TIẾT
 IMAGES_WEATHER = {
     "Ánh trăng": "https://docs.google.com/uc?export=download&id=1RnCoa7Q9lozV5Hykre3yZttHRgCjvRvt",
     "Bão": "https://docs.google.com/uc?export=download&id=1LtMmLCtQBkSmLTDrtqpE0IGaZnUJLqIG",
@@ -62,6 +61,8 @@ def start_copy():
     channel_id = os.environ.get('CHANNEL_ID')
     webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}
+    
+    # msg_cache sẽ lưu danh sách các ID tin nhắn đã gửi thành công
     msg_cache = [] 
 
     while True:
@@ -70,7 +71,8 @@ def start_copy():
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
-                    # Chỉ chặn nếu chính cái ID tin nhắn đó đã được gửi (tránh gửi 1 tin nhiều lần)
+                    
+                    # CHỈ GỬI NẾU ID NÀY CHƯA TỪNG ĐƯỢC GỬI
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
@@ -113,9 +115,13 @@ def start_copy():
                         }
                         requests.post(webhook_url, json=payload, timeout=10)
                         
-                        time.sleep(2.5)
+                        # Lưu ID vào cache để không gửi lại chính nó ở vòng lặp sau
                         msg_cache.append(msg_id)
-                        if len(msg_cache) > 20: msg_cache.pop(0)
+                        
+                        # Giữ cache ở mức 100 ID gần nhất để tránh tốn ram
+                        if len(msg_cache) > 100: msg_cache.pop(0)
+                        
+                        time.sleep(1) # Nghỉ nhẹ giữa các tin
         except: time.sleep(5)
         time.sleep(2)
 
