@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - FIX DUPLICATE ID"
+def home(): return "BOT FARM - SPEED & SAFETY VERSION"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# 2. Danh sách hình ảnh
+# 2. Danh sách hình ảnh TRÁI CÂY
 IMAGES_FRUIT = {
     "Bí ngô": "https://docs.google.com/uc?export=download&id=1_8bJk5VFrzpRwLqwFx2wWiv7ue_RFyGI",
     "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
@@ -21,6 +21,7 @@ IMAGES_FRUIT = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
+# 3. Danh sách hình ảnh THỜI TIẾT
 IMAGES_WEATHER = {
     "Ánh trăng": "https://docs.google.com/uc?export=download&id=1RnCoa7Q9lozV5Hykre3yZttHRgCjvRvt",
     "Bão": "https://docs.google.com/uc?export=download&id=1LtMmLCtQBkSmLTDrtqpE0IGaZnUJLqIG",
@@ -34,6 +35,7 @@ IMAGES_WEATHER = {
     "Nắng nóng": "https://docs.google.com/uc?export=download&id=1SUHVCw5D9iNzDLmQe5cc0XR1c1RevDMX"
 }
 
+# Bản đồ biến thể - thời tiết
 WEATHER_MAP = {
     "Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão",
     "sương": "Sương sớm", "Ánh trăng": "Ánh trăng", "cực quang": "Cực quang",
@@ -61,18 +63,16 @@ def start_copy():
     channel_id = os.environ.get('CHANNEL_ID')
     webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}
-    
-    # msg_cache sẽ lưu danh sách các ID tin nhắn đã gửi thành công
     msg_cache = [] 
 
     while True:
         try:
-            res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=10).json()
+            res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=5).json()
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
                     
-                    # CHỈ GỬI NẾU ID NÀY CHƯA TỪNG ĐƯỢC GỬI
+                    # CHỈ GỬI NẾU ID NÀY CHƯA TỪNG ĐƯỢC GỬI (Chống lặp ID)
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
@@ -81,9 +81,11 @@ def start_copy():
                             msg_cache.append(msg_id)
                             continue
                         
+                        # Giờ Việt Nam
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
 
+                        # Nhận diện
                         qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
                         ten_thoi_tiet = ""
                         for bien_the, thoi_tiet_chinh in WEATHER_MAP.items():
@@ -91,16 +93,20 @@ def start_copy():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
+                        # Tùy biến màu sắc và ảnh theo loại
                         if ten_thoi_tiet:
-                            color_code = 9442302
+                            color_code = 9442302  # Tím cho thời tiết
                             img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
                             display_name = ten_thoi_tiet
                         else:
-                            color_code = 3066993
+                            color_code = 3066993  # Xanh cho trái cây
                             img_url = IMAGES_FRUIT.get(qua_gi, "")
                             display_name = qua_gi if qua_gi else "FARM"
 
+                        # Tiêu đề sạch sẽ cho thông báo đẩy
                         clean_title = f"{display_name.upper()} — {time_str}"
+
+                        # Nội dung in đậm từ khóa quan trọng
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
@@ -113,17 +119,14 @@ def start_copy():
                                 "thumbnail": {"url": img_url}
                             }]
                         }
-                        requests.post(webhook_url, json=payload, timeout=10)
+                        requests.post(webhook_url, json=payload, timeout=5)
                         
-                        # Lưu ID vào cache để không gửi lại chính nó ở vòng lặp sau
                         msg_cache.append(msg_id)
-                        
-                        # Giữ cache ở mức 100 ID gần nhất để tránh tốn ram
                         if len(msg_cache) > 100: msg_cache.pop(0)
-                        
-                        time.sleep(1) # Nghỉ nhẹ giữa các tin
-        except: time.sleep(5)
-        time.sleep(2)
+                        time.sleep(0.5) # Nghỉ cực ngắn 0.5s giữa các tin
+        except Exception:
+            time.sleep(2) # Nếu lỗi mạng nghỉ 2s
+        time.sleep(0.7) # TỐC ĐỘ QUÉT: 0.7 giây (Cực nhanh & An toàn)
 
 if __name__ == "__main__":
     keep()
