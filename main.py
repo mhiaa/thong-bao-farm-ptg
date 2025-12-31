@@ -6,18 +6,19 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - SPEED & SAFETY VERSION"
+def home(): return "BOT FARM - VÒI ĐỎ FIXED"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# 2. Danh sách hình ảnh TRÁI CÂY
+# 2. Danh sách hình ảnh TRÁI CÂY & VẬT PHẨM
 IMAGES_FRUIT = {
+    "Vòi Đỏ": "https://docs.google.com/uc?export=download&id=1X5o3QcLVLpLnf22cXWoklsQ5E89or0tz",
     "Bí ngô": "https://docs.google.com/uc?export=download&id=1_8bJk5VFrzpRwLqwFx2wWiv7ue_RFyGI",
-    "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
     "Dưa hấu": "https://docs.google.com/uc?export=download&id=18d52gH4094L1gCk5zFq_Gm3sUYOrHeAV",
+    "Táo đường": "https://docs.google.com/uc?export=download&id=1SUHVCw5D9iNzDLmQe5cc0XR1c1RevDMX",
+    "Đậu": "https://docs.google.com/uc?export=download&id=1FyFviSqYIn--Dj5m5I_PaWbCPxOn-HL6",
     "Dừa": "https://docs.google.com/uc?export=download&id=1XRsIeWN0g-wAldeDHk1GqRtENIDPvEfb",
     "Khế": "https://docs.google.com/uc?export=download&id=1_jHGLxg6E0f9iiQEmdKUQFuPHF1pIkep",
     "Nho": "https://docs.google.com/uc?export=download&id=1r5HqB_4Xs1rG0bs0bJPjmFv559frBc6M",
-    "Táo đường": "https://docs.google.com/uc?export=download&id=1SUHVCw5D9iNzDLmQe5cc0XR1c1RevDMX",
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
@@ -35,7 +36,6 @@ IMAGES_WEATHER = {
     "Nắng nóng": "https://docs.google.com/uc?export=download&id=1SUHVCw5D9iNzDLmQe5cc0XR1c1RevDMX"
 }
 
-# Bản đồ biến thể - thời tiết
 WEATHER_MAP = {
     "Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão",
     "sương": "Sương sớm", "Ánh trăng": "Ánh trăng", "cực quang": "Cực quang",
@@ -47,14 +47,17 @@ def clean_extreme(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'[`*_~>|]', '', text)
+    
+    # FIX LẶP CHO VÒI ĐỎ, DƯA HẤU, BÍ NGÔ, TÁO ĐƯỜNG
+    targets = ["Vòi Đỏ", "Vòi đỏ", "Dưa hấu", "Bí ngô", "Táo đường"]
+    for t in targets:
+        # Xóa lặp từ đứng cạnh nhau không phân biệt hoa thường
+        text = re.sub(rf"(?i)({t})\s+\1", r"\1", text)
+
     words = text.split()
     clean_words = []
     for i, word in enumerate(words):
         if i == 0 or word.lower() != words[i-1].lower():
-            if len(clean_words) >= 2:
-                phrase_2 = (clean_words[-2] + " " + clean_words[-1]).lower()
-                current_phrase = (clean_words[-1] + " " + word).lower()
-                if phrase_2 == current_phrase: continue
             clean_words.append(word)
     return " ".join(clean_words).strip()
 
@@ -71,8 +74,6 @@ def start_copy():
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
-                    
-                    # CHỈ GỬI NẾU ID NÀY CHƯA TỪNG ĐƯỢC GỬI (Chống lặp ID)
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
@@ -81,32 +82,33 @@ def start_copy():
                             msg_cache.append(msg_id)
                             continue
                         
-                        # Giờ Việt Nam
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
 
-                        # Nhận diện
-                        qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        # NHẬN DIỆN ƯU TIÊN VÒI ĐỎ TRƯỚC
+                        qua_gi = ""
+                        if "vòi đỏ" in clean_text.lower():
+                            qua_gi = "Vòi Đỏ"
+                        else:
+                            qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        
                         ten_thoi_tiet = ""
                         for bien_the, thoi_tiet_chinh in WEATHER_MAP.items():
                             if bien_the.lower() in clean_text.lower():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
-                        # Tùy biến màu sắc và ảnh theo loại
+                        # THIẾT LẬP HIỂN THỊ
                         if ten_thoi_tiet:
-                            color_code = 9442302  # Tím cho thời tiết
+                            color_code = 9442302 # Tím
                             img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
                             display_name = ten_thoi_tiet
                         else:
-                            color_code = 3066993  # Xanh cho trái cây
+                            color_code = 3066993 # Xanh
                             img_url = IMAGES_FRUIT.get(qua_gi, "")
                             display_name = qua_gi if qua_gi else "FARM"
 
-                        # Tiêu đề sạch sẽ cho thông báo đẩy
                         clean_title = f"{display_name.upper()} — {time_str}"
-
-                        # Nội dung in đậm từ khóa quan trọng
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
@@ -123,12 +125,12 @@ def start_copy():
                         
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
-                        time.sleep(0.5) # Nghỉ cực ngắn 0.5s giữa các tin
+                        time.sleep(0.5)
         except Exception:
-            time.sleep(2) # Nếu lỗi mạng nghỉ 2s
-        time.sleep(0.7) # TỐC ĐỘ QUÉT: 0.7 giây (Cực nhanh & An toàn)
+            time.sleep(2)
+        time.sleep(0.7)
 
 if __name__ == "__main__":
     keep()
     start_copy()
-    
+                        
