@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - VÒI ĐỎ FIXED"
+def home(): return "BOT FARM - UPDATED NẮNG NÓNG"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 # 2. Danh sách hình ảnh TRÁI CÂY & VẬT PHẨM
@@ -22,7 +22,7 @@ IMAGES_FRUIT = {
     "Xoài": "https://docs.google.com/uc?export=download&id=1-57KkKrwRN5ftkzZfI5ZTcoVMmdlTcI2"
 }
 
-# 3. Danh sách hình ảnh THỜI TIẾT
+# 3. Danh sách hình ảnh THỜI TIẾT (Đã cập nhật Nắng nóng & Sương sớm)
 IMAGES_WEATHER = {
     "Ánh trăng": "https://docs.google.com/uc?export=download&id=1RnCoa7Q9lozV5Hykre3yZttHRgCjvRvt",
     "Bão": "https://docs.google.com/uc?export=download&id=1LtMmLCtQBkSmLTDrtqpE0IGaZnUJLqIG",
@@ -31,15 +31,15 @@ IMAGES_WEATHER = {
     "Gió": "https://docs.google.com/uc?export=download&id=1Q2AgAFs5I5G5Aesb72dI4jUtxQO6FSBl",
     "Mưa": "https://docs.google.com/uc?export=download&id=1ViM9l0nnVxpu3GxbErf0JL3HjvpSAR7W",
     "Sương mù": "https://docs.google.com/uc?export=download&id=1ClBFxlXKevf5pz0hn6i7d_osPFWgI5Up",
-    "Sương sớm": "https://docs.google.com/uc?export=download&id=11A-tvciVbgNoZgiILJnYUdnoeM0XujJK",
+    "Sương sớm": "https://docs.google.com/uc?export=download&id=1JSrhfORRipnJyKKtDBKcR-1dGgjQ3tSz",
     "Tuyết": "https://docs.google.com/uc?export=download&id=1DFIjESV2BGMY_aeeVJoi9shvgg-XqrMk",
-    "Nắng nóng": "https://docs.google.com/uc?export=download&id=1SUHVCw5D9iNzDLmQe5cc0XR1c1RevDMX"
+    "Nắng nóng": "https://docs.google.com/uc?export=download&id=11A-tvciVbgNoZgiILJnYUdnoeM0XujJK"
 }
 
 WEATHER_MAP = {
     "Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão",
-    "sương": "Sương sớm", "Ánh trăng": "Ánh trăng", "cực quang": "Cực quang",
-    "Gió": "Gió", "Khô": "Nắng nóng", "Sương mù": "Sương mù"
+    "sương sớm": "Sương sớm", "sương mù": "Sương mù", "Ánh trăng": "Ánh trăng", 
+    "cực quang": "Cực quang", "Gió": "Gió", "Khô": "Nắng nóng"
 }
 
 def clean_extreme(text):
@@ -47,13 +47,10 @@ def clean_extreme(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'[`*_~>|]', '', text)
-    
-    # FIX LẶP CHO VÒI ĐỎ, DƯA HẤU, BÍ NGÔ, TÁO ĐƯỜNG
+    # Bộ lọc chống lặp từ cho các vật phẩm hay bị lỗi lặp
     targets = ["Vòi Đỏ", "Vòi đỏ", "Dưa hấu", "Bí ngô", "Táo đường"]
     for t in targets:
-        # Xóa lặp từ đứng cạnh nhau không phân biệt hoa thường
         text = re.sub(rf"(?i)({t})\s+\1", r"\1", text)
-
     words = text.split()
     clean_words = []
     for i, word in enumerate(words):
@@ -77,7 +74,6 @@ def start_copy():
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
-                        
                         if not clean_text:
                             msg_cache.append(msg_id)
                             continue
@@ -85,26 +81,21 @@ def start_copy():
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
 
-                        # NHẬN DIỆN ƯU TIÊN VÒI ĐỎ TRƯỚC
-                        qua_gi = ""
-                        if "vòi đỏ" in clean_text.lower():
-                            qua_gi = "Vòi Đỏ"
-                        else:
-                            qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        # Nhận diện Vòi Đỏ hoặc Trái cây
+                        qua_gi = "Vòi Đỏ" if "vòi đỏ" in clean_text.lower() else next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
                         
                         ten_thoi_tiet = ""
-                        for bien_the, thoi_tiet_chinh in WEATHER_MAP.items():
+                        for bien_the, thoi_tiet_chinh in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
                             if bien_the.lower() in clean_text.lower():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
-                        # THIẾT LẬP HIỂN THỊ
                         if ten_thoi_tiet:
-                            color_code = 9442302 # Tím
+                            color_code = 9442302 # Màu tím
                             img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
                             display_name = ten_thoi_tiet
                         else:
-                            color_code = 3066993 # Xanh
+                            color_code = 3066993 # Màu xanh
                             img_url = IMAGES_FRUIT.get(qua_gi, "")
                             display_name = qua_gi if qua_gi else "FARM"
 
@@ -122,7 +113,6 @@ def start_copy():
                             }]
                         }
                         requests.post(webhook_url, json=payload, timeout=5)
-                        
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
                         time.sleep(0.5)
