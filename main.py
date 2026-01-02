@@ -6,10 +6,10 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - VÒI XANH & VÒI ĐỎ UPDATED"
+def home(): return "BOT FARM - YELLOW COLOR FOR VOI"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# 2. Danh sách hình ảnh TRÁI CÂY & VẬT PHẨM (Đã thêm Vòi Xanh)
+# 2. Danh sách hình ảnh TRÁI CÂY & VẬT PHẨM
 IMAGES_FRUIT = {
     "Vòi Xanh": "https://docs.google.com/uc?export=download&id=1Avt4uEi68aguVcSS2xKzfAc1BkytBWtT",
     "Vòi Đỏ": "https://docs.google.com/uc?export=download&id=1X5o3QcLVLpLnf22cXWoklsQ5E89or0tz",
@@ -48,7 +48,6 @@ def clean_extreme(text):
     text = re.sub(r'http\S+', '', text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'[`*_~>|]', '', text)
-    # Bộ lọc chống lặp cho Vòi Xanh, Vòi Đỏ và Trái cây
     targets = ["Vòi Xanh", "Vòi xanh", "Vòi Đỏ", "Vòi đỏ", "Dưa hấu", "Bí ngô", "Táo đường"]
     for t in targets:
         text = re.sub(rf"(?i)({t})\s+\1", r"\1", text)
@@ -82,11 +81,17 @@ def start_copy():
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
 
-                        # Nhận diện ưu tiên Vòi Xanh/Vòi Đỏ
+                        # Nhận diện
+                        is_voi = False
                         qua_gi = ""
-                        if "vòi xanh" in clean_text.lower(): qua_gi = "Vòi Xanh"
-                        elif "vòi đỏ" in clean_text.lower(): qua_gi = "Vòi Đỏ"
-                        else: qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        if "vòi xanh" in clean_text.lower(): 
+                            qua_gi = "Vòi Xanh"
+                            is_voi = True
+                        elif "vòi đỏ" in clean_text.lower(): 
+                            qua_gi = "Vòi Đỏ"
+                            is_voi = True
+                        else: 
+                            qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
                         
                         ten_thoi_tiet = ""
                         for bien_the, thoi_tiet_chinh in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
@@ -94,12 +99,17 @@ def start_copy():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
 
+                        # Màu sắc thông minh
                         if ten_thoi_tiet:
                             color_code = 9442302 # Tím
                             img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
                             display_name = ten_thoi_tiet
+                        elif is_voi:
+                            color_code = 16776960 # VÀNG CHO VÒI
+                            img_url = IMAGES_FRUIT.get(qua_gi, "")
+                            display_name = qua_gi
                         else:
-                            color_code = 3066993 # Xanh
+                            color_code = 3066993 # Xanh lá cho trái cây
                             img_url = IMAGES_FRUIT.get(qua_gi, "")
                             display_name = qua_gi if qua_gi else "FARM"
 
