@@ -78,8 +78,9 @@ def start_copy():
                             msg_cache.append(msg_id)
                             continue
                         
+                        # Thay đổi: thêm giây và dùng 24h để làm mới tiêu đề liên tục
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
-                        time_str = vn_time.strftime('%I:%M %p')
+                        time_str = vn_time.strftime('%H:%M:%S')
 
                         # Nhận diện
                         is_voi = False
