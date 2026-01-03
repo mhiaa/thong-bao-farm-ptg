@@ -6,8 +6,11 @@ from datetime import datetime, timezone, timedelta
 # 1. Server Flask duy trì trên Koyeb
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM - YELLOW COLOR FOR VOI"
+def home(): return "BOT FARM - NOTIFICATION ACTIVE (DEV TAG)"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
+
+# ID Role của bạn để nhận thông báo (ting ting)
+ROLE_ID = "1457014984767963181"
 
 # 2. Danh sách hình ảnh TRÁI CÂY & VẬT PHẨM
 IMAGES_FRUIT = {
@@ -118,8 +121,9 @@ def start_copy():
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
 
+                        # Payload có tích hợp Tag Role để báo chuông
                         payload = {
-                            "content": clean_title,
+                            "content": f"<@&{ROLE_ID}> **{clean_title}**",
                             "embeds": [{
                                 "description": display_text,
                                 "color": color_code,
