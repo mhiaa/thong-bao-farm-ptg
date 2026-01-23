@@ -12,7 +12,7 @@ def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 # Lấy Role ID từ Environment Variables trên Render
 ROLE_ID = os.environ.get('ROLE_ID')
 
-# 2. Danh mục hình ảnh vật phẩm và thời tiết (Chỉ thêm 2 mục mới)
+# 2. Danh mục hình ảnh vật phẩm và thời tiết
 IMAGES_FRUIT = {
     "Vòi Xanh": "https://docs.google.com/uc?export=download&id=1Avt4uEi68aguVcSS2xKzfAc1BkytBWtT",
     "Vòi Đỏ": "https://docs.google.com/uc?export=download&id=1X5o3QcLVLpLnf22cXWoklsQ5E89or0tz",
@@ -50,7 +50,6 @@ WEATHER_MAP = {
 def clean_extreme(text):
     if not text: return ""
     text = re.sub(r'http\S+', '', text); text = re.sub(r'<[^>]+>', '', text); text = re.sub(r'[`*_~>|]', '', text)
-    # Thêm Hạt giống cổ đại vào targets xử lý lặp
     targets = ["Vòi Xanh", "Vòi xanh", "Vòi Đỏ", "Vòi đỏ", "Dưa hấu", "Bí ngô", "Táo đường", "Hạt giống cổ đại"]
     for t in targets: text = re.sub(rf"(?i)({t})\s+\1", r"\1", text)
     words = text.split(); clean_words = []
@@ -70,34 +69,48 @@ def start_copy():
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean_text = clean_extreme(raw_text)
-                        if not clean_text: (msg_cache.append(msg_id)); continue
+                        if not clean_text:
+                            msg_cache.append(msg_id)
+                            continue
                         
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
                         
-                        is_voi = False; qua_gi = ""
-                        if "vòi xanh" in clean_text.lower(): (qua_gi = "Vòi Xanh"); (is_voi = True)
-                        elif "vòi đỏ" in clean_text.lower(): (qua_gi = "Vòi Đỏ"); (is_voi = True)
-                        else: qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        is_voi = False
+                        qua_gi = ""
+                        if "vòi xanh" in clean_text.lower():
+                            qua_gi = "Vòi Xanh"
+                            is_voi = True
+                        elif "vòi đỏ" in clean_text.lower():
+                            qua_gi = "Vòi Đỏ"
+                            is_voi = True
+                        else:
+                            qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
                         
                         ten_thoi_tiet = ""
                         for bien_the, thoi_tiet_chinh in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
-                            if bien_the.lower() in clean_text.lower(): (ten_thoi_tiet = thoi_tiet_chinh); break
+                            if bien_the.lower() in clean_text.lower():
+                                ten_thoi_tiet = thoi_tiet_chinh
+                                break
                         
-                        # Phân loại màu sắc và ảnh theo nội dung
-                        if ten_thoi_tiet: (color_code = 9442302); (img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")); (display_name = ten_thoi_tiet)
-                        elif is_voi: (color_code = 16776960); (img_url = IMAGES_FRUIT.get(qua_gi, "")); (display_name = qua_gi)
-                        else: (color_code = 3066993); (img_url = IMAGES_FRUIT.get(qua_gi, "")); (display_name = qua_gi if qua_gi else "FARM")
+                        if ten_thoi_tiet:
+                            color_code = 9442302
+                            img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
+                            display_name = ten_thoi_tiet
+                        elif is_voi:
+                            color_code = 16776960
+                            img_url = IMAGES_FRUIT.get(qua_gi, "")
+                            display_name = qua_gi
+                        else:
+                            color_code = 3066993
+                            img_url = IMAGES_FRUIT.get(qua_gi, "")
+                            display_name = qua_gi if qua_gi else "FARM"
                         
-                        # Tiêu đề không in đậm để gọn thông báo
                         clean_title = f"{display_name.upper()} — {time_str}"
-                        
-                        # Giữ nguyên logic in đậm nội dung quan trọng
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
                         
-                        # Payload gửi đi kèm Tag Role
                         payload = {"content": f"<@&{ROLE_ID}> {clean_title}", "embeds": [{"description": display_text, "color": color_code, "thumbnail": {"url": img_url}}]}
                         requests.post(webhook_url, json=payload, timeout=5)
                         msg_cache.append(msg_id)
