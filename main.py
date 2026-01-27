@@ -3,16 +3,13 @@ from flask import Flask
 from threading import Thread
 from datetime import datetime, timezone, timedelta
 
-# 1. Khởi tạo Server Flask để UptimeRobot có thể ping
 app = Flask('')
 @app.route('/')
 def home(): return "BOT FARM ACTIVE"
 def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# Lấy Role ID từ Environment Variables trên Render
 ROLE_ID = os.environ.get('ROLE_ID')
 
-# 2. Danh mục hình ảnh vật phẩm và thời tiết
 IMAGES_FRUIT = {
     "Vòi Xanh": "https://docs.google.com/uc?export=download&id=1Avt4uEi68aguVcSS2xKzfAc1BkytBWtT",
     "Vòi Đỏ": "https://docs.google.com/uc?export=download&id=1X5o3QcLVLpLnf22cXWoklsQ5E89or0tz",
@@ -60,9 +57,11 @@ def clean_extreme(text):
 def start_copy():
     token = os.environ.get('TOKEN'); channel_id = os.environ.get('CHANNEL_ID'); webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}; msg_cache = [] 
+    print("BOT STARTED SCANNING...") # Thêm log để dễ theo dõi
     while True:
         try:
-            res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=5).json()
+            # Rút ngắn timeout xuống 10s để tránh treo luồng
+            res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=10).json()
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
@@ -72,52 +71,40 @@ def start_copy():
                         if not clean_text:
                             msg_cache.append(msg_id)
                             continue
-                        
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
-                        
-                        is_voi = False
-                        qua_gi = ""
+                        is_voi = False; qua_gi = ""
                         if "vòi xanh" in clean_text.lower():
-                            qua_gi = "Vòi Xanh"
-                            is_voi = True
+                            qua_gi = "Vòi Xanh"; is_voi = True
                         elif "vòi đỏ" in clean_text.lower():
-                            qua_gi = "Vòi Đỏ"
-                            is_voi = True
+                            qua_gi = "Vòi Đỏ"; is_voi = True
                         else:
                             qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
-                        
                         ten_thoi_tiet = ""
                         for bien_the, thoi_tiet_chinh in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
                             if bien_the.lower() in clean_text.lower():
                                 ten_thoi_tiet = thoi_tiet_chinh
                                 break
-                        
                         if ten_thoi_tiet:
-                            color_code = 9442302
-                            img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")
-                            display_name = ten_thoi_tiet
+                            color_code = 9442302; img_url = IMAGES_WEATHER.get(ten_thoi_tiet, ""); display_name = ten_thoi_tiet
                         elif is_voi:
-                            color_code = 16776960
-                            img_url = IMAGES_FRUIT.get(qua_gi, "")
-                            display_name = qua_gi
+                            color_code = 16776960; img_url = IMAGES_FRUIT.get(qua_gi, ""); display_name = qua_gi
                         else:
-                            color_code = 3066993
-                            img_url = IMAGES_FRUIT.get(qua_gi, "")
-                            display_name = qua_gi if qua_gi else "FARM"
-                        
+                            color_code = 3066993; img_url = IMAGES_FRUIT.get(qua_gi, ""); display_name = qua_gi if qua_gi else "FARM"
                         clean_title = f"{display_name.upper()} — {time_str}"
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
-                        
                         payload = {"content": f"<@&{ROLE_ID}> {clean_title}", "embeds": [{"description": display_text, "color": color_code, "thumbnail": {"url": img_url}}]}
-                        requests.post(webhook_url, json=payload, timeout=5)
+                        requests.post(webhook_url, json=payload, timeout=10)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
+                        print(f"Sent notification: {display_name}") # Log khi gửi thành công
                         time.sleep(0.5)
-        except Exception: time.sleep(2)
-        time.sleep(0.7)
+        except Exception as e:
+            print(f"Error encountered: {e}") # Log lỗi để biết tại sao bot dừng
+            time.sleep(5)
+        time.sleep(1) # Tăng nhẹ thời gian nghỉ để tránh bị Discord quét IP
 
 if __name__ == "__main__":
     keep()
