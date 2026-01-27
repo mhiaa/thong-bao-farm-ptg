@@ -57,40 +57,36 @@ def clean_extreme(text):
 def start_copy():
     token = os.environ.get('TOKEN'); channel_id = os.environ.get('CHANNEL_ID'); webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}; msg_cache = [] 
-    print("BOT STARTED SCANNING...") # Thêm log để dễ theo dõi
+    print("BOT STARTED SCANNING...") 
     while True:
         try:
-            # Rút ngắn timeout xuống 10s để tránh treo luồng
             res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=10).json()
+            # Dòng DEBUG quan trọng:
+            if isinstance(res, list): print(f"Quet thanh cong. Thay {len(res)} tin.");
+            else: print(f"Loi ket noi hoac Token sai: {res}");
+
             if res and isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
+                        # In nội dung để biết tại sao không khớp:
+                        print(f"Tin nhan moi: {raw_text[:30]}...")
+                        
                         clean_text = clean_extreme(raw_text)
-                        if not clean_text:
-                            msg_cache.append(msg_id)
-                            continue
+                        if not clean_text: (msg_cache.append(msg_id)); continue
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
                         is_voi = False; qua_gi = ""
-                        if "vòi xanh" in clean_text.lower():
-                            qua_gi = "Vòi Xanh"; is_voi = True
-                        elif "vòi đỏ" in clean_text.lower():
-                            qua_gi = "Vòi Đỏ"; is_voi = True
-                        else:
-                            qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        if "vòi xanh" in clean_text.lower(): (qua_gi = "Vòi Xanh"); (is_voi = True)
+                        elif "vòi đỏ" in clean_text.lower(): (qua_gi = "Vòi Đỏ"); (is_voi = True)
+                        else: qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
                         ten_thoi_tiet = ""
                         for bien_the, thoi_tiet_chinh in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
-                            if bien_the.lower() in clean_text.lower():
-                                ten_thoi_tiet = thoi_tiet_chinh
-                                break
-                        if ten_thoi_tiet:
-                            color_code = 9442302; img_url = IMAGES_WEATHER.get(ten_thoi_tiet, ""); display_name = ten_thoi_tiet
-                        elif is_voi:
-                            color_code = 16776960; img_url = IMAGES_FRUIT.get(qua_gi, ""); display_name = qua_gi
-                        else:
-                            color_code = 3066993; img_url = IMAGES_FRUIT.get(qua_gi, ""); display_name = qua_gi if qua_gi else "FARM"
+                            if bien_the.lower() in clean_text.lower(): (ten_thoi_tiet = thoi_tiet_chinh); break
+                        if ten_thoi_tiet: (color_code = 9442302); (img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")); (display_name = ten_thoi_tiet)
+                        elif is_voi: (color_code = 16776960); (img_url = IMAGES_FRUIT.get(qua_gi, "")); (display_name = qua_gi)
+                        else: (color_code = 3066993); (img_url = IMAGES_FRUIT.get(qua_gi, "")); (display_name = qua_gi if qua_gi else "FARM")
                         clean_title = f"{display_name.upper()} — {time_str}"
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
@@ -99,12 +95,11 @@ def start_copy():
                         requests.post(webhook_url, json=payload, timeout=10)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
-                        print(f"Sent notification: {display_name}") # Log khi gửi thành công
+                        print(f"DONE: Da gui thong bao {display_name}")
                         time.sleep(0.5)
         except Exception as e:
-            print(f"Error encountered: {e}") # Log lỗi để biết tại sao bot dừng
-            time.sleep(5)
-        time.sleep(1) # Tăng nhẹ thời gian nghỉ để tránh bị Discord quét IP
+            print(f"CRITICAL ERROR: {e}"); time.sleep(5)
+        time.sleep(1.5)
 
 if __name__ == "__main__":
     keep()
