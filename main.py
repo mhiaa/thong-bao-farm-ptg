@@ -3,6 +3,7 @@ from flask import Flask
 from threading import Thread
 from datetime import datetime, timezone, timedelta
 
+# 1. Server Flask để UptimeRobot ping
 app = Flask('')
 @app.route('/')
 def home(): return "BOT FARM ACTIVE"
@@ -10,6 +11,7 @@ def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 ROLE_ID = os.environ.get('ROLE_ID')
 
+# 2. Danh mục hình ảnh (Giữ nguyên cũ + thêm 2 cái mới)
 IMAGES_FRUIT = {
     "Vòi Xanh": "https://docs.google.com/uc?export=download&id=1Avt4uEi68aguVcSS2xKzfAc1BkytBWtT",
     "Vòi Đỏ": "https://docs.google.com/uc?export=download&id=1X5o3QcLVLpLnf22cXWoklsQ5E89or0tz",
@@ -60,46 +62,56 @@ def start_copy():
     print("BOT STARTED SCANNING...") 
     while True:
         try:
-            res = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=10).json()
-            # Dòng DEBUG quan trọng:
-            if isinstance(res, list): print(f"Quet thanh cong. Thay {len(res)} tin.");
-            else: print(f"Loi ket noi hoac Token sai: {res}");
+            response = requests.get(f"https://discord.com/api/v9/channels/{channel_id}/messages?limit=5", headers=headers, timeout=10)
+            
+            if response.status_code == 429:
+                print("DANG BI DISCORD CHAN (RATE LIMIT). NGHI 30S..."); time.sleep(30); continue
+            if response.status_code == 401:
+                print("LOI: TOKEN SAI HOAC HET HAN!"); time.sleep(60); continue
+            
+            try:
+                res = response.json()
+            except:
+                print("LOI: NHAN DU LIEU RONG (CHAR 0). DANG THU LAI..."); time.sleep(5); continue
 
-            if res and isinstance(res, list):
+            if isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
                     if msg_id not in msg_cache:
                         raw_text = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
-                        # In nội dung để biết tại sao không khớp:
-                        print(f"Tin nhan moi: {raw_text[:30]}...")
-                        
                         clean_text = clean_extreme(raw_text)
                         if not clean_text: (msg_cache.append(msg_id)); continue
+                        
                         vn_time = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         time_str = vn_time.strftime('%I:%M %p')
+                        
                         is_voi = False; qua_gi = ""
                         if "vòi xanh" in clean_text.lower(): (qua_gi = "Vòi Xanh"); (is_voi = True)
                         elif "vòi đỏ" in clean_text.lower(): (qua_gi = "Vòi Đỏ"); (is_voi = True)
                         else: qua_gi = next((f for f in IMAGES_FRUIT if f.lower() in clean_text.lower()), "")
+                        
                         ten_thoi_tiet = ""
-                        for bien_the, thoi_tiet_chinh in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
-                            if bien_the.lower() in clean_text.lower(): (ten_thoi_tiet = thoi_tiet_chinh); break
+                        for b, t in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
+                            if b.lower() in clean_text.lower(): (ten_thoi_tiet = t); break
+                        
                         if ten_thoi_tiet: (color_code = 9442302); (img_url = IMAGES_WEATHER.get(ten_thoi_tiet, "")); (display_name = ten_thoi_tiet)
                         elif is_voi: (color_code = 16776960); (img_url = IMAGES_FRUIT.get(qua_gi, "")); (display_name = qua_gi)
                         else: (color_code = 3066993); (img_url = IMAGES_FRUIT.get(qua_gi, "")); (display_name = qua_gi if qua_gi else "FARM")
+                        
                         clean_title = f"{display_name.upper()} — {time_str}"
                         display_text = clean_text
                         for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
                             display_text = re.sub(f"(?i){word}", f"**{word}**", display_text)
+                        
                         payload = {"content": f"<@&{ROLE_ID}> {clean_title}", "embeds": [{"description": display_text, "color": color_code, "thumbnail": {"url": img_url}}]}
                         requests.post(webhook_url, json=payload, timeout=10)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
-                        print(f"DONE: Da gui thong bao {display_name}")
+                        print(f"DONE: Da gui {display_name}")
                         time.sleep(0.5)
+            time.sleep(1.5)
         except Exception as e:
-            print(f"CRITICAL ERROR: {e}"); time.sleep(5)
-        time.sleep(1.5)
+            print(f"LOI KHONG XAC DINH: {e}"); time.sleep(5)
 
 if __name__ == "__main__":
     keep()
