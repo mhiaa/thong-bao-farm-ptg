@@ -3,12 +3,16 @@ from flask import Flask
 from threading import Thread
 from datetime import datetime, timezone, timedelta
 
-# 1. Server Flask để giữ bot luôn sống (UptimeRobot ping)
+# 1. Khởi tạo Server Flask
 app = Flask('')
 @app.route('/')
-def home(): return "BOT FARM ACTIVE"
-def keep(): Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
+def home():
+    return "BOT FARM ACTIVE"
 
+def keep():
+    Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
+
+# Lấy các biến từ Environment
 ROLE_ID = os.environ.get('ROLE_ID')
 
 # 2. Danh mục hình ảnh
@@ -40,35 +44,48 @@ IMAGES_WEATHER = {
     "Băng": "https://docs.google.com/uc?export=download&id=18g8AYVKbAUQDMyoOaPbHXmRf5HlNKYY2"
 }
 
-WEATHER_MAP = {"Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão", "sương sớm": "Sương sớm", "sương mù": "Sương mù", "Ánh trăng": "Ánh trăng", "cực quang": "Cực quang", "Gió": "Gió", "Khô": "Nắng nóng", "Băng": "Băng"}
+WEATHER_MAP = {
+    "Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão",
+    "sương sớm": "Sương sớm", "sương mù": "Sương mù", "Ánh trăng": "Ánh trăng", 
+    "cực quang": "Cực quang", "Gió": "Gió", "Khô": "Nắng nóng", "Băng": "Băng"
+}
 
 def clean_extreme(text):
     if not text: return ""
-    text = re.sub(r'http\S+', '', text); text = re.sub(r'<[^>]+>', '', text); text = re.sub(r'[`*_~>|]', '', text)
-    targets = ["Vòi Xanh", "Vòi xanh", "Vòi Đỏ", "Vòi đỏ", "Dưa hấu", "Bí ngô", "Táo đường", "Hạt giống cổ đại"]
-    for t in targets: text = re.sub(rf"(?i)({t})\s+\1", r"\1", text)
-    words = text.split(); clean_words = []
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'[`*_~>|]', '', text)
+    targets = ["Vòi Xanh", "Vòi Đỏ", "Dưa hấu", "Bí ngô", "Táo đường", "Hạt giống cổ đại"]
+    for t in targets:
+        text = re.sub(rf"(?i)({t})\s+\1", r"\1", text)
+    words = text.split()
+    clean_words = []
     for i, word in enumerate(words):
-        if i == 0 or word.lower() != words[i-1].lower(): clean_words.append(word)
+        if i == 0 or word.lower() != words[i-1].lower():
+            clean_words.append(word)
     return " ".join(clean_words).strip()
 
 def start_copy():
-    token = os.environ.get('TOKEN'); ch_id = os.environ.get('CHANNEL_ID'); webhook_url = os.environ.get('WEBHOOK')
-    headers = {'Authorization': token}; msg_cache = [] 
+    token = os.environ.get('TOKEN')
+    ch_id = os.environ.get('CHANNEL_ID')
+    webhook_url = os.environ.get('WEBHOOK')
+    headers = {'Authorization': token}
+    msg_cache = [] 
     print("=== BOT DANG QUET TIN NHAN ===") 
     while True:
         try:
             resp = requests.get(f"https://discord.com/api/v9/channels/{ch_id}/messages?limit=5", headers=headers, timeout=10)
-            
             if resp.status_code == 429:
-                print("DANG BI DISCORD CHAN IP (RATE LIMIT). NGHI 60S..."); time.sleep(60); continue
+                time.sleep(60)
+                continue
             if resp.status_code == 401:
-                print("LOI: TOKEN SAI HOAC DA CHET!"); time.sleep(60); continue
-            
+                time.sleep(60)
+                continue
             try:
                 res = resp.json()
             except:
-                print("NHAN DU LIEU RONG. DANG THU LAI..."); time.sleep(10); continue
+                time.sleep(10)
+                continue
 
             if isinstance(res, list):
                 for msg in reversed(res):
@@ -76,34 +93,66 @@ def start_copy():
                     if msg_id not in msg_cache:
                         raw = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean = clean_extreme(raw)
-                        if not clean: (msg_cache.append(msg_id)); continue
+                        if not clean:
+                            msg_cache.append(msg_id)
+                            continue
                         
                         vn_t = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         t_str = vn_t.strftime('%I:%M %p')
                         
-                        is_v = False; q = ""
-                        if "vòi xanh" in clean.lower(): (q = "Vòi Xanh"); (is_v = True)
-                        elif "vòi đỏ" in clean.lower(): (q = "Vòi Đỏ"); (is_v = True)
-                        else: q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
+                        is_v = False
+                        q = ""
+                        if "vòi xanh" in clean.lower():
+                            q = "Vòi Xanh"
+                            is_v = True
+                        elif "vòi đỏ" in clean.lower():
+                            q = "Vòi Đỏ"
+                            is_v = True
+                        else:
+                            q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
                         
                         w = ""
                         for b, tc in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
-                            if b.lower() in clean.lower(): (w = tc); break
+                            if b.lower() in clean.lower():
+                                w = tc
+                                break
                         
-                        if w: (c = 9442302); (img = IMAGES_WEATHER.get(w, "")); (name = w)
-                        elif is_v: (c = 16776960); (img = IMAGES_FRUIT.get(q, "")); (name = q)
-                        else: (c = 3066993); (img = IMAGES_FRUIT.get(q, "")); (name = q if q else "FARM")
+                        if w:
+                            c = 9442302
+                            img = IMAGES_WEATHER.get(w, "")
+                            name = w
+                        elif is_v:
+                            c = 16776960
+                            img = IMAGES_FRUIT.get(q, "")
+                            name = q
+                        else:
+                            c = 3066993
+                            img = IMAGES_FRUIT.get(q, "")
+                            name = q if q else "FARM"
                         
-                        payload = {"content": f"<@&{ROLE_ID}> {name.upper()} — {t_str}", "embeds": [{"description": clean, "color": c, "thumbnail": {"url": img}}]}
+                        title = f"{name.upper()} — {t_str}"
+                        d_text = clean
+                        for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
+                            d_text = re.sub(f"(?i){word}", f"**{word}**", d_text)
+                        
+                        payload = {
+                            "content": f"<@&{ROLE_ID}> {title}",
+                            "embeds": [{
+                                "description": d_text,
+                                "color": c,
+                                "thumbnail": {"url": img}
+                            }]
+                        }
                         requests.post(webhook_url, json=payload, timeout=10)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
                         print(f"DONE: Da gui {name}")
-            time.sleep(2.5) # Quét chậm lại để an toàn
+            time.sleep(2.5)
         except Exception as e:
-            print(f"LOI: {e}"); time.sleep(5)
+            print(f"ERROR: {e}")
+            time.sleep(5)
 
 if __name__ == "__main__":
     keep()
     start_copy()
-    
+                            
