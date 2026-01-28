@@ -3,7 +3,6 @@ from flask import Flask
 from threading import Thread
 from datetime import datetime, timezone, timedelta
 
-# 1. Khởi tạo Server Flask
 app = Flask('')
 @app.route('/')
 def home():
@@ -12,10 +11,8 @@ def home():
 def keep():
     Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
-# Lấy các biến từ Environment
 ROLE_ID = os.environ.get('ROLE_ID')
 
-# 2. Danh mục hình ảnh
 IMAGES_FRUIT = {
     "Vòi Xanh": "https://docs.google.com/uc?export=download&id=1Avt4uEi68aguVcSS2xKzfAc1BkytBWtT",
     "Vòi Đỏ": "https://docs.google.com/uc?export=download&id=1X5o3QcLVLpLnf22cXWoklsQ5E89or0tz",
@@ -71,22 +68,17 @@ def start_copy():
     webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}
     msg_cache = [] 
-    print("=== BOT DANG QUET TIN NHAN ===") 
+    print("=== BOT DANG QUET TOC DO CAO ===") 
     while True:
         try:
             resp = requests.get(f"https://discord.com/api/v9/channels/{ch_id}/messages?limit=5", headers=headers, timeout=10)
+            
             if resp.status_code == 429:
-                time.sleep(60)
-                continue
+                print("BI RATE LIMIT. NGHI 30S..."); time.sleep(30); continue
             if resp.status_code == 401:
-                time.sleep(60)
-                continue
-            try:
-                res = resp.json()
-            except:
-                time.sleep(10)
-                continue
-
+                print("TOKEN LOI!"); time.sleep(60); continue
+                
+            res = resp.json()
             if isinstance(res, list):
                 for msg in reversed(res):
                     msg_id = msg.get('id')
@@ -94,8 +86,7 @@ def start_copy():
                         raw = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean = clean_extreme(raw)
                         if not clean:
-                            msg_cache.append(msg_id)
-                            continue
+                            msg_cache.append(msg_id); continue
                         
                         vn_t = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         t_str = vn_t.strftime('%I:%M %p')
@@ -103,56 +94,44 @@ def start_copy():
                         is_v = False
                         q = ""
                         if "vòi xanh" in clean.lower():
-                            q = "Vòi Xanh"
-                            is_v = True
+                            q = "Vòi Xanh"; is_v = True
                         elif "vòi đỏ" in clean.lower():
-                            q = "Vòi Đỏ"
-                            is_v = True
+                            q = "Vòi Đỏ"; is_v = True
                         else:
                             q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
                         
+                        # CHẶN NHO
+                        if q == "Nho":
+                            msg_cache.append(msg_id); continue
+
                         w = ""
                         for b, tc in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
                             if b.lower() in clean.lower():
-                                w = tc
-                                break
+                                w = tc; break
                         
                         if w:
-                            c = 9442302
-                            img = IMAGES_WEATHER.get(w, "")
-                            name = w
+                            c = 9442302; img = IMAGES_WEATHER.get(w, ""); name = w
                         elif is_v:
-                            c = 16776960
-                            img = IMAGES_FRUIT.get(q, "")
-                            name = q
+                            c = 16776960; img = IMAGES_FRUIT.get(q, ""); name = q
                         else:
-                            c = 3066993
-                            img = IMAGES_FRUIT.get(q, "")
-                            name = q if q else "FARM"
-                        
-                        title = f"{name.upper()} — {t_str}"
-                        d_text = clean
-                        for word in list(IMAGES_FRUIT.keys()) + list(WEATHER_MAP.keys()) + ["xuất hiện", "biến thể", "đang bán"]:
-                            d_text = re.sub(f"(?i){word}", f"**{word}**", d_text)
+                            c = 3066993; img = IMAGES_FRUIT.get(q, ""); name = q if q else "FARM"
                         
                         payload = {
-                            "content": f"<@&{ROLE_ID}> {title}",
-                            "embeds": [{
-                                "description": d_text,
-                                "color": c,
-                                "thumbnail": {"url": img}
-                            }]
+                            "content": f"<@&{ROLE_ID}> {name.upper()} — {t_str}",
+                            "embeds": [{"description": clean, "color": c, "thumbnail": {"url": img}}]
                         }
                         requests.post(webhook_url, json=payload, timeout=10)
                         msg_cache.append(msg_id)
                         if len(msg_cache) > 100: msg_cache.pop(0)
-                        print(f"DONE: Da gui {name}")
-            time.sleep(2.5)
+                        print(f"DONE: {name}")
+            
+            # GIẢM THỜI GIAN NGHỈ XUỐNG 1.2S ĐỂ QUÉT NHANH
+            time.sleep(1.2) 
+            
         except Exception as e:
-            print(f"ERROR: {e}")
             time.sleep(5)
 
 if __name__ == "__main__":
     keep()
     start_copy()
-                            
+    
