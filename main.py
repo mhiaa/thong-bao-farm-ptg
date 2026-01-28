@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 app = Flask('')
 @app.route('/')
 def home():
-    return "BOT FARM ACTIVE"
+    return "BOT ACTIVE"
 
 def keep():
     Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
@@ -41,11 +41,7 @@ IMAGES_WEATHER = {
     "Băng": "https://docs.google.com/uc?export=download&id=18g8AYVKbAUQDMyoOaPbHXmRf5HlNKYY2"
 }
 
-WEATHER_MAP = {
-    "Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão",
-    "sương sớm": "Sương sớm", "sương mù": "Sương mù", "Ánh trăng": "Ánh trăng", 
-    "cực quang": "Cực quang", "Gió": "Gió", "Khô": "Nắng nóng", "Băng": "Băng"
-}
+WEATHER_MAP = {"Ẩm ướt": "Mưa", "Cát": "Gió cát", "Khí lạnh": "Tuyết", "nhiễm điện": "Bão", "sương sớm": "Sương sớm", "sương mù": "Sương mù", "Ánh trăng": "Ánh trăng", "cực quang": "Cực quang", "Gió": "Gió", "Khô": "Nắng nóng", "Băng": "Băng"}
 
 def clean_extreme(text):
     if not text: return ""
@@ -68,15 +64,18 @@ def start_copy():
     webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}
     msg_cache = [] 
-    print("=== BOT DANG QUET TOC DO CAO ===") 
+    print("=== BOT DANG QUET TOC DO 2.0S ===") 
     while True:
         try:
             resp = requests.get(f"https://discord.com/api/v9/channels/{ch_id}/messages?limit=5", headers=headers, timeout=10)
-            
             if resp.status_code == 429:
-                print("BI RATE LIMIT. NGHI 30S..."); time.sleep(30); continue
+                print("BI RATE LIMIT. NGHI 30S...")
+                time.sleep(30)
+                continue
             if resp.status_code == 401:
-                print("TOKEN LOI!"); time.sleep(60); continue
+                print("TOKEN LOI!")
+                time.sleep(60)
+                continue
                 
             res = resp.json()
             if isinstance(res, list):
@@ -86,7 +85,8 @@ def start_copy():
                         raw = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean = clean_extreme(raw)
                         if not clean:
-                            msg_cache.append(msg_id); continue
+                            msg_cache.append(msg_id)
+                            continue
                         
                         vn_t = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         t_str = vn_t.strftime('%I:%M %p')
@@ -94,27 +94,37 @@ def start_copy():
                         is_v = False
                         q = ""
                         if "vòi xanh" in clean.lower():
-                            q = "Vòi Xanh"; is_v = True
+                            q = "Vòi Xanh"
+                            is_v = True
                         elif "vòi đỏ" in clean.lower():
-                            q = "Vòi Đỏ"; is_v = True
+                            q = "Vòi Đỏ"
+                            is_v = True
                         else:
                             q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
                         
-                        # CHẶN NHO
+                        # TAM THOI CHAN NHO
                         if q == "Nho":
-                            msg_cache.append(msg_id); continue
+                            msg_cache.append(msg_id)
+                            continue
 
                         w = ""
                         for b, tc in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
                             if b.lower() in clean.lower():
-                                w = tc; break
+                                w = tc
+                                break
                         
                         if w:
-                            c = 9442302; img = IMAGES_WEATHER.get(w, ""); name = w
+                            c = 9442302
+                            img = IMAGES_WEATHER.get(w, "")
+                            name = w
                         elif is_v:
-                            c = 16776960; img = IMAGES_FRUIT.get(q, ""); name = q
+                            c = 16776960
+                            img = IMAGES_FRUIT.get(q, "")
+                            name = q
                         else:
-                            c = 3066993; img = IMAGES_FRUIT.get(q, ""); name = q if q else "FARM"
+                            c = 3066993
+                            img = IMAGES_FRUIT.get(q, "")
+                            name = q if q else "FARM"
                         
                         payload = {
                             "content": f"<@&{ROLE_ID}> {name.upper()} — {t_str}",
@@ -125,8 +135,8 @@ def start_copy():
                         if len(msg_cache) > 100: msg_cache.pop(0)
                         print(f"DONE: {name}")
             
-            # GIẢM THỜI GIAN NGHỈ XUỐNG 1.2S ĐỂ QUÉT NHANH
-            time.sleep(1.2) 
+            # De 2.0s de khong bi Rate Limit tren Koyeb
+            time.sleep(2.0)
             
         except Exception as e:
             time.sleep(5)
