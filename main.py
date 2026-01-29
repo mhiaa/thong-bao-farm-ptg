@@ -9,6 +9,7 @@ def home():
     return "BOT ACTIVE"
 
 def keep():
+    # Flask chạy trên port 8000 để khớp với Health Check trên Koyeb
     Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 ROLE_ID = os.environ.get('ROLE_ID')
@@ -64,14 +65,16 @@ def start_copy():
     webhook_url = os.environ.get('WEBHOOK')
     headers = {'Authorization': token}
     msg_cache = [] 
-    print("=== BOT DANG QUET TOC DO 2.0S ===") 
+    print("=== BOT DANG QUET TOC DO 1.2S (BAN GOC) ===") 
     while True:
         try:
             resp = requests.get(f"https://discord.com/api/v9/channels/{ch_id}/messages?limit=5", headers=headers, timeout=10)
+            
             if resp.status_code == 429:
                 print("BI RATE LIMIT. NGHI 30S...")
                 time.sleep(30)
                 continue
+                
             if resp.status_code == 401:
                 print("TOKEN LOI!")
                 time.sleep(60)
@@ -102,11 +105,6 @@ def start_copy():
                         else:
                             q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
                         
-                        # TAM THOI CHAN NHO
-                        if q == "Nho":
-                            msg_cache.append(msg_id)
-                            continue
-
                         w = ""
                         for b, tc in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
                             if b.lower() in clean.lower():
@@ -135,8 +133,8 @@ def start_copy():
                         if len(msg_cache) > 100: msg_cache.pop(0)
                         print(f"DONE: {name}")
             
-            # De 2.0s de khong bi Rate Limit tren Koyeb
-            time.sleep(2.0)
+            # Tốc độ 1.2 giây nguyên bản
+            time.sleep(1.2)
             
         except Exception as e:
             time.sleep(5)
