@@ -9,7 +9,6 @@ def home():
     return "BOT ACTIVE"
 
 def keep():
-    # Flask chạy trên port 8000 để khớp với Health Check trên Koyeb
     Thread(target=lambda: app.run(host='0.0.0.0', port=8000)).start()
 
 ROLE_ID = os.environ.get('ROLE_ID')
@@ -63,21 +62,22 @@ def start_copy():
     token = os.environ.get('TOKEN')
     ch_id = os.environ.get('CHANNEL_ID')
     webhook_url = os.environ.get('WEBHOOK')
-    headers = {'Authorization': token}
+    
+    headers = {
+        'Authorization': token,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
     msg_cache = [] 
-    print("=== BOT DANG QUET TOC DO 1.2S (BAN GOC) ===") 
+    print("=== BOT DANG QUET TOC DO 0.7S (BAN GOC) ===") 
     while True:
         try:
             resp = requests.get(f"https://discord.com/api/v9/channels/{ch_id}/messages?limit=5", headers=headers, timeout=10)
             
             if resp.status_code == 429:
-                print("BI RATE LIMIT. NGHI 30S...")
-                time.sleep(30)
-                continue
-                
-            if resp.status_code == 401:
-                print("TOKEN LOI!")
-                time.sleep(60)
+                retry_after = resp.json().get('retry_after', 30)
+                print(f"BI RATE LIMIT. NGHI {retry_after}S...")
+                time.sleep(retry_after)
                 continue
                 
             res = resp.json()
@@ -88,41 +88,26 @@ def start_copy():
                         raw = f"{msg.get('content', '')} " + (msg.get('embeds', [{}])[0].get('description', '') if msg.get('embeds') else '')
                         clean = clean_extreme(raw)
                         if not clean:
-                            msg_cache.append(msg_id)
-                            continue
+                            msg_cache.append(msg_id); continue
                         
                         vn_t = datetime.fromisoformat(msg.get('timestamp').replace('Z', '+00:00')).astimezone(timezone(timedelta(hours=7)))
                         t_str = vn_t.strftime('%I:%M %p')
                         
-                        is_v = False
-                        q = ""
-                        if "vòi xanh" in clean.lower():
-                            q = "Vòi Xanh"
-                            is_v = True
-                        elif "vòi đỏ" in clean.lower():
-                            q = "Vòi Đỏ"
-                            is_v = True
-                        else:
-                            q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
+                        is_v = False; q = ""
+                        if "vòi xanh" in clean.lower(): q = "Vòi Xanh"; is_v = True
+                        elif "vòi đỏ" in clean.lower(): q = "Vòi Đỏ"; is_v = True
+                        else: q = next((f for f in IMAGES_FRUIT if f.lower() in clean.lower()), "")
                         
                         w = ""
                         for b, tc in sorted(WEATHER_MAP.items(), key=lambda x: len(x[0]), reverse=True):
-                            if b.lower() in clean.lower():
-                                w = tc
-                                break
+                            if b.lower() in clean.lower(): w = tc; break
                         
                         if w:
-                            c = 9442302
-                            img = IMAGES_WEATHER.get(w, "")
-                            name = w
+                            c = 9442302; img = IMAGES_WEATHER.get(w, ""); name = w
                         elif is_v:
-                            c = 16776960
-                            img = IMAGES_FRUIT.get(q, "")
-                            name = q
+                            c = 16776960; img = IMAGES_FRUIT.get(q, ""); name = q
                         else:
-                            c = 3066993
-                            img = IMAGES_FRUIT.get(q, "")
-                            name = q if q else "FARM"
+                            c = 3066993; img = IMAGES_FRUIT.get(q, ""); name = q if q else "FARM"
                         
                         payload = {
                             "content": f"<@&{ROLE_ID}> {name.upper()} — {t_str}",
@@ -133,11 +118,10 @@ def start_copy():
                         if len(msg_cache) > 100: msg_cache.pop(0)
                         print(f"DONE: {name}")
             
-            # Tốc độ 1.2 giây nguyên bản
-            time.sleep(1.2)
+            time.sleep(0.7)
             
-        except Exception as e:
-            time.sleep(5)
+        except Exception:
+            time.sleep(1)
 
 if __name__ == "__main__":
     keep()
